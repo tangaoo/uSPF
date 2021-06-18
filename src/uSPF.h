@@ -100,7 +100,7 @@ typedef struct __uspf_hub_list_t
 
 #ifdef __cplusplus
 extern "C" {
-#endi
+#endif
 
 /* //////////////////////////////////////////////////////////////////////////////////////
  * interfaces
@@ -127,14 +127,73 @@ uspf_node_ref_t			uspf_subscribe(uspf_hub_ref_t hub, uspf_event_t event, void (*
 
 /*! unsubscribe uspf msg
  *
- * @param a             brief
+ * @param hub           the msg hub
+ * @param node          the uspf node
+ *
+ * @return              USPF_OK or USPF_FAILED
+ */
+uspf_err_t	    		uspf_unsubscribe(uspf_hub_ref_t hub, uspf_node_ref_t node);
+
+/*! publish data 
+ *
+ * @param hub           the msg hub
+ * @param data          the data
+ *
+ * @return              USPF_OK or USPF_FAILED
+ */
+uspf_err_t				uspf_publish(uspf_hub_ref_t hub, const void* data);
+
+/*! uspf poll async
+ *
+ * @param node          the node
+ *
+ * @return             	USPF_TRUE, or USPF_FALSE 
+ */
+uspf_bool_t				uspf_poll(uspf_node_ref_t node);
+
+/*! uspf poll sync
+ *
+ * @param node          the node
+ *
+ * @return             	USPF_TRUE, or USPF_FALSE 
+ */
+uspf_bool_t				uspf_poll_sync(uspf_node_ref_t node);
+
+/*! copy data
+ *
+ * @param hub           the hub
+ * @param node          the node
+ * @param buff [O]      the buff
+ *
+ * @return              USPF_OK or USPF_FAILED
+ */
+uspf_err_t				uspf_copy(uspf_hub_ref_t hub, uspf_node_ref_t node, void* buff);
+
+/*! copy data from hub
+ *
+ * @param hub           the hub
+ * @param buff [O]      the buff
+ *
+ * @return              USPF_OK or USPF_FAILED
+ */
+uspf_err_t				uspf_copy_hub(uspf_hub_ref_t hub, void* buff);
+
+/*! clear node
+ *
+ * @param node          the node
  *
  * @return              tt_void_t
  */
-uspf_node_ref_t			uspf_unsubscribe(uspf_hub_ref_t hub, uspf_node_ref_t node);
+void					uspf_node_clear(uspf_node_ref_t node);	
+
+/*! get hub list
+ *
+ * @return              the hub list
+ */
+uspf_hub_list_ref_t		uspf_hub_list(void);
 
 #ifdef __cplusplus
 }
-#endi
+#endif
 
 #endif
