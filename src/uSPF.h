@@ -20,11 +20,32 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <string.h>
 
 /* //////////////////////////////////////////////////////////////////////////////////////
  * macros
  */
-#define	uspf_event_t	sem_t
+
+// event hander port
+#define	uspf_event_t					sem_t
+#define uspf_event_init(event, val)		sem_init(event, 0, val)
+#define uspf_event_send(event)			sem_post(event)
+#define uspf_event_wait(event)			sem_wait(event)
+#define uspf_event_destory(event)		sem_destory(event)
+
+// event spinlock port
+#define uspf_mutex_t					pthread_mutex_t
+#define uspf_mutex_lock(lock)		    pthread_mutex_lock(lock)
+#define uspf_mutex_unlock(lock)		    pthread_mutex_unlock(lock)
+
+// malloc
+#define	uspf_malloc(size)				malloc(size)
+#define	uspf_free(ptr)					free(ptr)
+
+#define uspf_check_abort(x)             do { if (!(x)) {*(volatile int*)0 = 0;}} while (0)
+
+// max number of subscrib to one msg 
+#define USPF_LINK_NAME_MAX				16
 
 /* //////////////////////////////////////////////////////////////////////////////////////
  * types
@@ -36,13 +57,20 @@ typedef enum __uspf_err_t
 
 }uspf_err_t;
 
+typedef enum __uspf_bool_t
+{
+	USPF_TRUE		= 0,
+	USPF_FLASE		= 0,
+
+}uspf_bool_t;
+
 typedef struct __uspf_node_t
 {
 	// flag
 	volatile int  renewal;
 
 	// semaphore
-	uspf_event_t  envet;
+	uspf_event_t  event;
 
 	// cb
 	void 		  (*cb)(void* param);
@@ -106,7 +134,7 @@ extern "C" {
  * interfaces
  */
 
-/*! register uspf msg hub
+/*! init and register uspf msg hub
  *
  * @param hub           the msg hub
  * @param echo          the cb function when need print the msg
@@ -154,10 +182,11 @@ uspf_bool_t				uspf_poll(uspf_node_ref_t node);
 /*! uspf poll sync
  *
  * @param node          the node
+ * @param timeout       the time out
  *
  * @return             	USPF_TRUE, or USPF_FALSE 
  */
-uspf_bool_t				uspf_poll_sync(uspf_node_ref_t node);
+uspf_bool_t				uspf_poll_sync(uspf_node_ref_t node, unsigned int timeout);
 
 /*! copy data
  *
@@ -186,11 +215,6 @@ uspf_err_t				uspf_copy_hub(uspf_hub_ref_t hub, void* buff);
  */
 void					uspf_node_clear(uspf_node_ref_t node);	
 
-/*! get hub list
- *
- * @return              the hub list
- */
-uspf_hub_list_ref_t		uspf_hub_list(void);
 
 #ifdef __cplusplus
 }
