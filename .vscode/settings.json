@@ -1,7 +1,0 @@
-{
-	"editor.detectIndentation": false,
-	"editor.insertSpaces": false,
-	"files.associations": {
-		"uspf.h": "c"
-	}
-}
