@@ -59,8 +59,8 @@ typedef enum __uspf_err_t
 
 typedef enum __uspf_bool_t
 {
-	USPF_TRUE		= 0,
 	USPF_FLASE		= 0,
+	USPF_TRUE		= 1,
 
 }uspf_bool_t;
 
@@ -114,7 +114,7 @@ typedef struct __uspf_hub_list_t
 // define uspf msg 
 #define USPF_MSG_DEFINE(name, size)     \
 	uspf_hub_t __uspf_##name = {    	\
-			.msg_name	   = name,		\
+			.msg_name	   = #name,		\
 			.msg_size	   = size,		\
 			.pdata		   = NULL,		\
 			.published     = 0, 		\

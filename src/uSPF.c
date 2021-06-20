@@ -173,7 +173,7 @@ uspf_err_t uspf_publish(uspf_hub_ref_t hub, const void* data)
 	hub->published = 1;
 
 	// unlock
-	uspf_mutex_lock(&s_uspf_mutex);
+	uspf_mutex_unlock(&s_uspf_mutex);
 
 	node = hub->link_head;
 	while (node != NULL)
@@ -188,7 +188,7 @@ uspf_err_t uspf_publish(uspf_hub_ref_t hub, const void* data)
 uspf_bool_t uspf_poll(uspf_node_ref_t node)
 {
 	uspf_check_abort(node);
-	uspf_bool_t renewal;
+	uspf_bool_t renewal = USPF_FLASE;
 
 	uspf_mutex_lock(&s_uspf_mutex);
 	renewal = node->renewal;
