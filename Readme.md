@@ -12,7 +12,7 @@ cd uSPF
 make
 ```
 
-## example
+## 接口
 
 #### 定义 
 
@@ -54,6 +54,8 @@ uspf_copy(USPF_MSG_ID(demo_topic), node, &data);
 #### 补充
 
 * publish 代码与 subscribe 代码分属不同文件时，一般定义 topic 放在 publish 部分，而声名放在 subscribe 部分。
+
+* 详细部分参见example。
 
 ## TODO
 
