@@ -31,6 +31,8 @@ uspf_register(USPF_MSG_ID(demo_topic), NULL);
 ```c++
 uspf_node_ref_t node = uspf_subscribe(USPF_MSG_ID(demo_topic), 0, NULL);
 ```
+* 注册同时可以传一个回调函数，该回调函数会在发布模块中被执行。
+* 如果需要**同步轮询**，需要定义event。
 
 #### 发布
 
