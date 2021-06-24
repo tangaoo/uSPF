@@ -3,7 +3,7 @@ CFLAGS =  -Wall -O2 -fPIC -I./
 LDFLAGS = -shared -lpthread
 INSTALL = /usr/bin/install -c
 
-TARGET=libuspf.so
+TARGET=libuspf.a
 
 prefix=/usr/local
 includedir=$(prefix)/include
@@ -14,7 +14,10 @@ c_files = $(wildcard *.c)
 objects = $(c_files:.c=.o)
 
 $(TARGET): $(objects)
-	$(CC) $(LDFLAGS) $^ -o $(TARGET)
+	ar -rc $(TARGET) $^ 
+
+# 编译动态库
+#   $(CC) $(LDFLAGS) $^ -o $(TARGET)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $^ -o $@

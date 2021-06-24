@@ -1,7 +1,7 @@
-.PHONY: all install uninstall clean update-orez
+.PHONY: all install uninstall clean run
 
 all:
-	cd src; make
+	cd uSPF; make
 	cd example; make
 
 install:
@@ -9,7 +9,8 @@ install:
 uninstall:
 
 clean:
-	cd src; make clean
+	cd uSPF; make clean
 	cd example; make clean
 
-update-orez:
+run:
+	cd example; ./demo

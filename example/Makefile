@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS =  -Wall -O2 -I./
-LDFLAGS = -lpthread -luspf -L../src
+LDFLAGS = -lpthread -luspf -lttlib_mirco -L../uSPF -L../ttlib_micro/lib
 INSTALL = /usr/bin/install -c
 
 TARGET=demo

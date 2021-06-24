@@ -12,7 +12,8 @@
 /* //////////////////////////////////////////////////////////////////////////////////////
  * includes
  */
-#include "../src/uSPF.h"
+#include "../ttlib_micro/include/ttlib_mirco/ttlib.h"
+#include "../uSPF/uSPF.h"
 
 /* //////////////////////////////////////////////////////////////////////////////////////
  * types
@@ -37,6 +38,10 @@ void* demo_subscribe_thread(void* arg);
 int main(void)
 {
 	pthread_t t1, t2;
+
+	tt_lib_init(tt_null);
+
+	tt_trace_i("ttlib");
 
 	pthread_create(&t2, NULL, demo_subscribe_thread, NULL);
 	sleep(1);
