@@ -12,6 +12,10 @@ cd uSPF
 make
 ```
 
+## 依赖
+
+* uSPF 框架依赖 [ttlib_mirco](https://github.com/tangaoo/ttlib_micro)库，具体可见项目主页。
+
 ## 接口
 
 #### 定义 
@@ -61,5 +65,6 @@ uspf_copy(USPF_MSG_ID(demo_topic), node, &data);
 
 ## TODO
 
+* [x] 引入 ttlib_mirco 库，替换目前的链表操作;
 * [ ] 目前仅支持数据包形式topic订阅，后续需要支持纯流数据的支持;
 * [ ] 目前仅支持单进程内部订阅与发布，后续需支持多进程。
