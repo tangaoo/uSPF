@@ -13,4 +13,4 @@ clean:
 	cd example; make clean
 
 run:
-	cd example; ./demo
+	cd example; make run 

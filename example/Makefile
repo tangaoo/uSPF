@@ -8,7 +8,7 @@ LDFLAGS += -luspf -L../uSPF
 LDFLAGS += -lttlib_mirco  -L../dep/install/lib
 INSTALL = /usr/bin/install -c
 
-TARGET=demo
+TARGET=example
 
 prefix=/usr/local
 includedir=$(prefix)/include
