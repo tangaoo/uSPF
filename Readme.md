@@ -14,7 +14,7 @@ make
 
 ## 依赖
 
-* uSPF 框架依赖 [ttlib_mirco](https://github.com/tangaoo/ttlib_micro)库，具体可见项目主页。
+* uSPF 框架依赖 [ttlib_mirco](https://github.com/tangaoo/ttlib_micro)库(即工程中dep目录)，具体可见项目主页。
 
 ## 接口
 
