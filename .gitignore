@@ -1,3 +1,7 @@
 .vscode/settings.json
 example/demo
 example/demo.o
+example/example
+example/example.o
+uSPF/libuspf.a
+uSPF/uSPF.o
