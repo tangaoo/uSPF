@@ -1,0 +1,3 @@
+[submodule "dep"]
+	path = dep
+	url = git@github.com:tangaoo/ttlib_micro.git
