@@ -32,10 +32,10 @@ USPF_MSG_DEFINE(demo_topic, sizeof(demo_data_t));
 /* //////////////////////////////////////////////////////////////////////////////////////
  * declaration
  */
-void* demo_publish_thread(void* arg);
-void* demo_subscribe_thread(void* arg);
+tt_void_t* demo_publish_thread(tt_void_t* arg);
+tt_void_t* demo_subscribe_thread(tt_void_t* arg);
 
-int main(void)
+tt_int_t main(tt_void_t)
 {
     pthread_t t1, t2;
 

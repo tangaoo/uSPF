@@ -18,47 +18,55 @@
 /* //////////////////////////////////////////////////////////////////////////////////////
  * globals
  */
-static uspf_hub_list_t s_uspf_hub_list = {NULL, NULL};
-static uspf_mutex_t    s_uspf_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// uspf hub list header
+static tt_single_list_entry_head_t s_uspf_hub_list; 
+
+// static spinlock
+static tt_spinlock_t   lock = TT_SPINLOCK_INITIALIZER;
 
 /* //////////////////////////////////////////////////////////////////////////////////////
  * implementation
  */
-uspf_err_t uspf_register(uspf_hub_ref_t hub, int (*echo)(void* param))
+tt_bool_t uspf_init(tt_void_t)
 {
-    uspf_check_abort(hub);
+    // init list header
+    tt_single_list_entry_init(&s_uspf_hub_list, uspf_hub_list_t, entry, NULL);
 
-    // check if have been registered
-    if(hub->pdata != NULL) return USPF_FAILED;
+    return tt_true;
+}
 
-    // create data
-    hub->pdata = uspf_malloc(hub->msg_size);
-    memset(hub->pdata, 0, hub->msg_size);
-    hub->echo  = echo;
-    if(hub->pdata != NULL) return USPF_FAILED;
+tt_bool_t uspf_register(uspf_hub_ref_t hub, tt_int_t (*echo)(tt_void_t* param))
+{
+    tt_assert_and_check_abort(hub);
+    tt_bool_t ok = tt_false;
 
-    // lock
-    uspf_mutex_lock(&s_uspf_mutex);
-    uspf_hub_list_ref_t hub_list = &s_uspf_hub_list;
-
-    // walk to hub_list tail
-    while(hub_list->next != NULL) hub_list = hub_list->next;
-
-    if(hub_list->hub != NULL)    
+    // init hub and append to hub list
+    do
     {
-        // append new hub
-        hub_list->next = uspf_malloc(sizeof(uspf_hub_list_t));
-        if(hub_list->next == NULL) return USPF_FAILED;
-        
-        hub_list = hub_list->next;
-    }
-    hub_list->hub  = hub;
-    hub_list->next = NULL;
+        // check if have been registered
+        if (hub->pdata != NULL) break;
 
-    // unlock
-    uspf_mutex_unlock(&s_uspf_mutex);
+        // create data
+        hub->pdata = tt_malloc0(hub->msg_size);
+        if (hub->pdata == NULL) break;
+        hub->echo = echo;
 
-    return USPF_OK;
+        // lock
+        tt_spinlock_enter(&lock);
+
+        uspf_hub_list_ref_t node = (uspf_hub_list_ref_t)tt_malloc(sizeof(uspf_hub_list_t));
+        node->hub = hub;
+        tt_single_list_entry_insert_tail(&s_uspf_hub_list, &node->entry);
+
+        // unlock
+        uspf_mutex_unlock(&lock);
+
+        ok = tt_true;
+
+    } while (0);
+    
+    return ok;
 }
 
 uspf_node_ref_t uspf_subscribe(uspf_hub_ref_t hub, uspf_event_t event, void (*cb)(void* param))

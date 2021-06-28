@@ -21,6 +21,12 @@ make
 #### 定义 
 
 ```c++
+typedef struct __demo_data_t
+{
+    const char* name;
+    int a;
+}demo_data_t, *demo_data_ref_t;
+
 USPF_MSG_DEFINE(demo_topic, sizeof(demo_data_t));
 ```
 
