@@ -45,12 +45,15 @@ tt_bool_t uspf_register(uspf_hub_ref_t hub, tt_int_t (*echo)(tt_void_t* param))
     do
     {
         // check if have been registered
-        if (hub->pdata != NULL) break;
+        if (hub->pdata != tt_null) break;
 
         // create data
         hub->pdata = tt_malloc0(hub->msg_size);
-        if (hub->pdata == NULL) break;
         hub->echo = echo;
+        if (hub->pdata == tt_null) break;
+
+        // init node_list
+        tt_single_list_entry_init(&hub->node_list, uspf_node_t, entry, tt_null);
 
         // lock
         tt_spinlock_enter(&lock);
@@ -60,7 +63,7 @@ tt_bool_t uspf_register(uspf_hub_ref_t hub, tt_int_t (*echo)(tt_void_t* param))
         tt_single_list_entry_insert_tail(&s_uspf_hub_list, &node->entry);
 
         // unlock
-        uspf_mutex_unlock(&lock);
+        tt_spinlock_leave(&lock);
 
         ok = tt_true;
 
@@ -69,22 +72,14 @@ tt_bool_t uspf_register(uspf_hub_ref_t hub, tt_int_t (*echo)(tt_void_t* param))
     return ok;
 }
 
-uspf_node_ref_t uspf_subscribe(uspf_hub_ref_t hub, uspf_event_t event, void (*cb)(void* param))
+uspf_node_ref_t uspf_subscribe(uspf_hub_ref_t hub, uspf_sync_flag_t flag, tt_void_t (*cb)(tt_void_t* param))
 {
-    // check
-    uspf_check_abort(hub);
-
-    // check max node num
-    if(hub->link_num >= USPF_LINK_NAME_MAX) 
-    {
-        printf("hub's node number is full \n");
-        return NULL;
-    }
+    tt_assert_and_check_abort(hub); 
+    tt_check_return_val(hub->link_num <= USPF_LINK_NAME_MAX, tt_null);
     
     // create node
     uspf_node_ref_t node = uspf_malloc(sizeof(uspf_node_t));
     if(node == NULL) return NULL;
-
     // init node
     node->renewal = 0;
     node->event   = event;
@@ -92,7 +87,7 @@ uspf_node_ref_t uspf_subscribe(uspf_hub_ref_t hub, uspf_event_t event, void (*cb
     node->next    = NULL;
 
     // lock
-    uspf_mutex_lock(&s_uspf_mutex);
+    tt_spinlock_enter(&lock);
 
     // node link empty?
     if(hub->link_tail == NULL)
@@ -106,7 +101,7 @@ uspf_node_ref_t uspf_subscribe(uspf_hub_ref_t hub, uspf_event_t event, void (*cb
     hub->link_num++;
 
     // unlock
-    uspf_mutex_unlock(&s_uspf_mutex);
+    tt_spinlock_leave(&lock);
 
     return node;
 }

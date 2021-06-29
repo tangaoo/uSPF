@@ -63,9 +63,10 @@ typedef struct __uspf_hub_t
     tt_int_t               (*echo)(tt_void_t* param);
     tt_uint64_t            last_pub_time;
     tt_f32_t               freq;
-    uspf_node_ref_t        link_head;
-    uspf_node_ref_t        link_tail;
-    tt_size_t              link_num;
+    tt_size_t              node_num;
+
+    // list header of [uspf_node_t]
+    tt_single_list_entry_head_t node_list; 
 
 }uspf_hub_t, *uspf_hub_ref_t; 
 
@@ -122,7 +123,7 @@ tt_bool_t               uspf_register(uspf_hub_ref_t hub, tt_int_t (*echo)(tt_vo
  * @param event         the event used for sync; NULL for async
  * @param cb            the cb function, It will be call in publish
  *
- * @return              the uspf node, used for poll、coye msg... 
+ * @return              the uspf node(used for poll、coye msg...) or tt_null 
  */
 uspf_node_ref_t         uspf_subscribe(uspf_hub_ref_t hub, uspf_sync_flag_t flag, tt_void_t (*cb)(tt_void_t* param));
 
