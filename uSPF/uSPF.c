@@ -41,16 +41,16 @@ tt_bool_t uspf_register(uspf_hub_ref_t hub, tt_int_t (*echo)(tt_void_t* param))
     tt_assert_and_check_abort(hub);
     tt_bool_t ok = tt_false;
 
+    // check if have been registered
+    tt_check_return_val(hub->pdata == tt_null, tt_false);
+
     // init hub and append to hub list
     do
     {
-        // check if have been registered
-        if (hub->pdata != tt_null) break;
-
         // create data
         hub->pdata = tt_malloc0(hub->msg_size);
         hub->echo = echo;
-        if (hub->pdata == tt_null) break;
+        tt_check_break(hub->pdata != tt_null);
 
         // init node_list
         tt_single_list_entry_init(&hub->node_list, uspf_node_t, entry, tt_null);
@@ -78,26 +78,20 @@ uspf_node_ref_t uspf_subscribe(uspf_hub_ref_t hub, uspf_sync_flag_t flag, tt_voi
     tt_check_return_val(hub->link_num <= USPF_LINK_NAME_MAX, tt_null);
     
     // create node
-    uspf_node_ref_t node = uspf_malloc(sizeof(uspf_node_t));
-    if(node == NULL) return NULL;
+    uspf_node_ref_t node = (uspf_node_ref_t)tt_malloc(sizeof(uspf_node_t));
+    tt_check_return_val(node != tt_null, tt_null);
+
     // init node
     node->renewal = 0;
     node->event   = event;
     node->cb      = cb;
-    node->next    = NULL;
+    node->next    = tt_null;
 
     // lock
     tt_spinlock_enter(&lock);
 
-    // node link empty?
-    if(hub->link_tail == NULL)
-        hub->link_head = hub->link_tail = node;
-    else
-    {
-        // append to tail
-        hub->link_tail->next = node;
-        hub->link_tail = node;
-    }
+    // add node to node_list
+    tt_single_list_entry_insert_tail(&hub->node_list, node);
     hub->link_num++;
 
     // unlock
@@ -106,9 +100,9 @@ uspf_node_ref_t uspf_subscribe(uspf_hub_ref_t hub, uspf_sync_flag_t flag, tt_voi
     return node;
 }
 
-uspf_err_t uspf_unsubscribe(uspf_hub_ref_t hub, uspf_node_ref_t node)
+tt_bool_t uspf_unsubscribe(uspf_hub_ref_t hub, uspf_node_ref_t node)
 {
-    uspf_check_abort(hub && node);
+    tt_assert_and_check_return_val(hub && node, tt_false);
 
     uspf_node_ref_t cur_node = hub->link_head;
     uspf_node_ref_t pre_node = hub->link_head;
