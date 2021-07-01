@@ -20,10 +20,10 @@
  */
 
 // uspf hub list header
-static tt_single_list_entry_head_t s_uspf_hub_list; 
+static tt_list_entry_head_t s_uspf_hub_list; 
 
 // static spinlock
-static tt_spinlock_t   lock = TT_SPINLOCK_INITIALIZER;
+static tt_spinlock_t   s_lock = TT_SPINLOCK_INITIALIZER;
 
 /* //////////////////////////////////////////////////////////////////////////////////////
  * implementation
@@ -31,7 +31,7 @@ static tt_spinlock_t   lock = TT_SPINLOCK_INITIALIZER;
 tt_bool_t uspf_init(tt_void_t)
 {
     // init list header
-    tt_single_list_entry_init(&s_uspf_hub_list, uspf_hub_list_t, entry, NULL);
+    tt_list_entry_init(&s_uspf_hub_list, uspf_hub_list_t, entry, NULL);
 
     return tt_true;
 }
@@ -53,17 +53,17 @@ tt_bool_t uspf_register(uspf_hub_ref_t hub, tt_int_t (*echo)(tt_void_t* param))
         tt_check_break(hub->pdata != tt_null);
 
         // init node_list
-        tt_single_list_entry_init(&hub->node_list, uspf_node_t, entry, tt_null);
+        tt_list_entry_init(&hub->node_list, uspf_node_t, entry, tt_null);
 
         // lock
-        tt_spinlock_enter(&lock);
+        tt_spinlock_enter(&s_lock);
 
         uspf_hub_list_ref_t node = (uspf_hub_list_ref_t)tt_malloc(sizeof(uspf_hub_list_t));
         node->hub = hub;
-        tt_single_list_entry_insert_tail(&s_uspf_hub_list, &node->entry);
+        tt_list_entry_insert_tail(&s_uspf_hub_list, &node->entry);
 
         // unlock
-        tt_spinlock_leave(&lock);
+        tt_spinlock_leave(&s_lock);
 
         ok = tt_true;
 
@@ -82,20 +82,20 @@ uspf_node_ref_t uspf_subscribe(uspf_hub_ref_t hub, uspf_sync_flag_t flag, tt_voi
     tt_check_return_val(node != tt_null, tt_null);
 
     // init node
-    node->renewal = 0;
-    node->event   = event;
+    node->renewal = tt_false;
     node->cb      = cb;
     node->next    = tt_null;
+    if(flag == USPF_SYNC) node->event = tt_semaphore_init(0);
 
     // lock
-    tt_spinlock_enter(&lock);
+    tt_spinlock_enter(&s_lock);
 
     // add node to node_list
-    tt_single_list_entry_insert_tail(&hub->node_list, node);
+    tt_list_entry_insert_tail(&hub->node_list, node);
     hub->link_num++;
 
     // unlock
-    tt_spinlock_leave(&lock);
+    tt_spinlock_leave(&s_lock);
 
     return node;
 }
@@ -104,149 +104,119 @@ tt_bool_t uspf_unsubscribe(uspf_hub_ref_t hub, uspf_node_ref_t node)
 {
     tt_assert_and_check_return_val(hub && node, tt_false);
 
-    uspf_node_ref_t cur_node = hub->link_head;
-    uspf_node_ref_t pre_node = hub->link_head;
+    // TODO check if node in list?
 
-    // walk list, find node
-    while(cur_node != NULL)
-    {
-        // find it
-        if(cur_node == node) break;
+    tt_spinlock_enter(&s_lock);
 
-        pre_node = node;
-        node = node->next;
-    }
+    tt_list_entry_remove(hub->node_list, node->entry);
 
-    // check if find the node
-    if(cur_node == NULL) return USPF_FAILED;
+    tt_spinlock_leave(&s_lock);
 
-    // delect node in list
-    if(cur_node == hub->link_head)    
-        hub->link_head = cur_node->next;
-    if(cur_node == hub->link_tail)
-    {
-        if(pre_node) pre_node->next = NULL;
-        hub->link_tail = pre_node;
-    }
-    else
-    {
-        pre_node->next = cur_node->next;
-    }
+    // free node
+    tt_free(node);
+    hub->link_num--;
 
-    // free cur_node
-    uspf_free(cur_node);
-    hub->link_num++;
-
-    // unlock
-    uspf_mutex_unlock(&s_uspf_mutex);
-
-    return USPF_OK;
+    return tt_true;
 }
 
-uspf_err_t uspf_publish(uspf_hub_ref_t hub, const void* data)
+tt_bool_t uspf_publish(uspf_hub_ref_t hub, const void* data)
 {
     // check
-    uspf_check_abort(hub && data);
+    tt_assert_and_check_return_val(hub && data, tt_false);
 
-    // check hub pdata
-    if(hub->pdata == NULL) return USPF_FAILED;
+    // check the hub have register
+    tt_check_return_val(hub->pdata != tt_null, tt_false);
+
+    // iterator
+    tt_iterator_ref_t iterator = tt_list_entry_iterator(&hub->node_list);
 
     // lock
-    uspf_mutex_lock(&s_uspf_mutex);
+    tt_spinlock_enter(&s_lock);
 
     // copy data
     memcpy(hub->pdata, data, hub->msg_size);
 
-    uspf_node_ref_t node = hub->link_head;
-    while (node != NULL)
+    // walk node_list
+    tt_for_all(uspf_node_ref_t, node1, iterator)
     {
-        // updata node flag
-        node->renewal = 1;
-        if(node->event) uspf_event_send(&node->event);
-
-        node = node->next;
+        // update flag
+        node1->renewal = tt_true;
+        if(node1->event) tt_semaphore_post(node1->event, 1); 
     }
-    
+   
     hub->published = 1;
 
     // unlock
-    uspf_mutex_unlock(&s_uspf_mutex);
+    tt_spinlock_leave(&s_lock);
 
-    node = hub->link_head;
-    while (node != NULL)
+    // walk node_list, can't be reentrant, also can't put it in lock area
+    tt_for_all(uspf_node_ref_t, node2, iterator)
     {
-        if(node->cb != NULL) node->cb(hub->pdata);
-        node = node->next;
+        if(node->cb != tt_null) node2->cb(hub->pdata);
     }
 
-    return USPF_OK;    
+    return tt_true;    
 }
 
-uspf_bool_t uspf_poll(uspf_node_ref_t node)
+tt_bool_t uspf_poll(uspf_node_ref_t node)
 {
-    uspf_check_abort(node);
-    uspf_bool_t renewal = USPF_FLASE;
+    tt_assert_and_check_return_val(node, tt_false);
 
-    uspf_mutex_lock(&s_uspf_mutex);
-    renewal = node->renewal;
-    uspf_mutex_unlock(&s_uspf_mutex);
-
-    return renewal;
+    return node->renewal;
 }
 
-uspf_bool_t uspf_poll_sync(uspf_node_ref_t node, unsigned int timeout)
+tt_bool_t uspf_poll_sync(uspf_node_ref_t node, unsigned int timeout)
 {
-    uspf_check_abort(node && node->event);
+    tt_assert_and_check_return_val(node, tt_false);
 
-    uspf_event_wait(&node->event);
+    tt_semaphore_wait(node->event);
 
-    return USPF_TRUE;
+    return tt_true;
 }
 
-uspf_err_t uspf_copy(uspf_hub_ref_t hub, uspf_node_ref_t node, void* buff)
+tt_bool_t uspf_copy(uspf_hub_ref_t hub, uspf_node_ref_t node, void* buff)
 {
-    uspf_check_abort(hub && node && buff);
+    tt_assert_and_check_return_val(hub && node && buff, tt_false);
 
-    // check
-    if(hub->pdata == NULL) return USPF_FAILED;
-
+    // check hub pdata
+    tt_check_return_val(hub->pdata != tt_null, tt_false);
     // check if publish
-    if(!hub->published) return USPF_FAILED;
+    tt_check_return_val(hub->published, tt_false);
 
-    uspf_mutex_lock(&s_uspf_mutex);
+    tt_spinlock_enter(&s_lock);
 
     memcpy(buff, hub->pdata, hub->msg_size);
-    node->renewal = 0;
+    node->renewal = tt_false;
 
-    uspf_mutex_unlock(&s_uspf_mutex);
+    tt_spinlock_leave(&s_lock);
 
-    return USPF_OK;
+    return tt_true;
 }
 
-uspf_err_t uspf_copy_hub(uspf_hub_ref_t hub, void* buff)
+tt_bool_t uspf_copy_hub(uspf_hub_ref_t hub, tt_void_t* buff)
 {
-    uspf_check_abort(hub && buff);
+    tt_assert_and_check_return_val(hub && buff, tt_false);
 
-    // check
-    if(hub->pdata == NULL) return USPF_FAILED;
-
+    // check hub pdata
+    tt_check_return_val(hub->pdata != tt_null, tt_false);
     // check if publish
-    if(!hub->published) return USPF_FAILED;
+    tt_check_return_val(hub->published, tt_false);
 
-    uspf_mutex_lock(&s_uspf_mutex);
+    tt_spinlock_enter(&s_lock);
     memcpy(buff, hub->pdata, hub->msg_size);
-    uspf_mutex_unlock(&s_uspf_mutex);
+    tt_spinlock_leave(&s_lock);
 
-    return USPF_OK;
-
+    return tt_true;
 }
 
-void uspf_node_clear_msg(uspf_node_ref_t node)
+tt_bool_t uspf_node_clear(uspf_node_ref_t node)
 {
-    uspf_check_abort(node);
+    tt_assert_and_check_return_val(node, tt_false);
 
-    uspf_mutex_lock(&s_uspf_mutex);
-    node->renewal = 0;
-    uspf_mutex_unlock(&s_uspf_mutex);
+    tt_spinlock_enter(&s_lock);
+    node->renewal = tt_false;
+    tt_spinlock_leave(&s_lock);
+
+    return tt_true;
 }
 

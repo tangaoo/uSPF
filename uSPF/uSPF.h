@@ -41,10 +41,10 @@ typedef enum __uspf_sync_flag_t
 typedef struct __uspf_node_t
 {
     // single list entry
-    tt_single_list_entry_t entry;
+    tt_list_entry_t        entry;
 
     // flag
-    volatile tt_int_t      renewal;
+    volatile tt_bool_t     renewal;
 
     // semaphore
     tt_semaphore_ref_t     event;
@@ -66,14 +66,14 @@ typedef struct __uspf_hub_t
     tt_size_t              node_num;
 
     // list header of [uspf_node_t]
-    tt_single_list_entry_head_t node_list; 
+    tt_list_entry_head_t   node_list; 
 
 }uspf_hub_t, *uspf_hub_ref_t; 
 
 typedef struct __uspf_hub_list_t
 {
-    tt_single_list_entry_t  entry;
-    uspf_hub_ref_t          hub;
+    tt_list_entry_t        entry;
+    uspf_hub_ref_t         hub;
 
 }uspf_hub_list_t, *uspf_hub_list_ref_t;
 
@@ -185,9 +185,9 @@ tt_bool_t               uspf_copy_hub(uspf_hub_ref_t hub, tt_void_t* buff);
  *
  * @param node          the node
  *
- * @return              tt_void_t
+ * @return              tt_true or tt_false
  */
-tt_void_t               uspf_node_clear(uspf_node_ref_t node);    
+tt_bool_t               uspf_node_clear(uspf_node_ref_t node);    
 
 __tt_extern_c_leave__
 
