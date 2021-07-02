@@ -55,6 +55,7 @@ tt_bool_t uspf_register(uspf_hub_ref_t hub, tt_int_t (*echo)(tt_void_t* param))
     {
         // create data
         hub->pdata = tt_malloc0(hub->msg_size);
+        tt_trace_d("register, hub->pdata, %p", hub->pdata);
         hub->echo = echo;
         tt_check_break(hub->pdata != tt_null);
 
@@ -167,7 +168,11 @@ tt_bool_t uspf_poll(uspf_node_ref_t node)
 {
     tt_assert_and_check_return_val(node, tt_false);
 
-    return node->renewal;
+    tt_spinlock_enter(&s_lock);
+    tt_bool_t flag = node->renewal;
+    tt_spinlock_leave(&s_lock);
+
+    return flag;
 }
 
 tt_bool_t uspf_poll_sync(uspf_node_ref_t node, unsigned int timeout)
@@ -190,6 +195,7 @@ tt_bool_t uspf_copy(uspf_hub_ref_t hub, uspf_node_ref_t node, void* buff)
 
     tt_spinlock_enter(&s_lock);
 
+    tt_trace_d("copy, hub->pdata, %p", hub->pdata);
     memcpy(buff, hub->pdata, hub->msg_size);
     node->renewal = tt_false;
 

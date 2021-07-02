@@ -86,8 +86,8 @@ void* demo_subscribe_thread(void* arg)
     } while (!ok);
 
     demo_data_t data;
-    uspf_copy(USPF_MSG_ID(demo_topic), node, &data);
-    tt_trace_d("data, %s, %d", data.name, data.a);
+    if(uspf_copy(USPF_MSG_ID(demo_topic), node, &data))
+        tt_trace_d("data, %s, %d", data.name, data.a);
 
     return NULL;    
 }
