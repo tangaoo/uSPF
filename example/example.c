@@ -9,6 +9,9 @@
  * @brief      main.c file
  */
 
+#define TT_TRACE_MODULE_NAME    "uspf_example"
+#define TT_TRACE_DEBUG          1
+
 /* //////////////////////////////////////////////////////////////////////////////////////
  * includes
  */
@@ -20,8 +23,8 @@
  */
 typedef struct __demo_data_t
 {
-    const char* name;
-    int a;
+    const tt_char_t* name;
+    tt_int_t a;
 }demo_data_t, *demo_data_ref_t;
 
 /* //////////////////////////////////////////////////////////////////////////////////////
@@ -39,40 +42,43 @@ tt_int_t main(tt_void_t)
 {
     pthread_t t1, t2;
 
+    // init ttlib
     tt_lib_init(tt_null);
 
-    tt_trace_i("ttlib");
+    // init uspf
+    uspf_init();
 
-    pthread_create(&t2, NULL, demo_subscribe_thread, NULL);
+    // register topic
+    uspf_register(USPF_MSG_ID(demo_topic), tt_null);    
+
+    pthread_create(&t2, tt_null, demo_subscribe_thread, tt_null);
     sleep(1);
-    pthread_create(&t1, NULL, demo_publish_thread, NULL);
+    pthread_create(&t1, tt_null, demo_publish_thread, tt_null);
 
     // join the thread
-    pthread_join(t1, NULL);
-    pthread_join(t2, NULL);
+    pthread_join(t1, tt_null);
+    pthread_join(t2, tt_null);
 
     return 0;
 }
 
-void* demo_publish_thread(void* arg)
+tt_void_t* demo_publish_thread(tt_void_t* arg)
 {
-    printf("publish thread\n");
-    // register topic
-    uspf_register(USPF_MSG_ID(demo_topic), NULL);    
+    tt_trace_d("publish thread");
 
     // get msg data
     demo_data_t data = {"demo data", 8};
     uspf_publish(USPF_MSG_ID(demo_topic), &data);
 
-    return NULL;
+    return tt_null;
 }
 
 void* demo_subscribe_thread(void* arg)
 {
-    printf("subscribe thread\n");
-    uspf_bool_t ok = USPF_FLASE;
+    tt_trace_d("subscribe thread");
+    tt_bool_t ok = tt_false;
     // subsrcibe topic
-    uspf_node_ref_t node = uspf_subscribe(USPF_MSG_ID(demo_topic), 0, NULL);
+    uspf_node_ref_t node = uspf_subscribe(USPF_MSG_ID(demo_topic), USPF_ASYNC, tt_null);
 
     do
     {
@@ -81,7 +87,7 @@ void* demo_subscribe_thread(void* arg)
 
     demo_data_t data;
     uspf_copy(USPF_MSG_ID(demo_topic), node, &data);
-    printf("data, %s, %d \n", data.name, data.a);
+    tt_trace_d("data, %s, %d", data.name, data.a);
 
     return NULL;    
 }

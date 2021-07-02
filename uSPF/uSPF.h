@@ -97,9 +97,7 @@ typedef struct __uspf_hub_list_t
             .echo            = tt_null, \
             .last_pub_time   = 0,       \
             .freq            = 0.0f,    \
-            .link_head       = tt_null, \
-            .link_tail       = tt_null, \
-            .link_num        = 0,       \
+            .node_num        = 0,       \
     }                                    
 
 __tt_extern_c_enter__
@@ -107,6 +105,12 @@ __tt_extern_c_enter__
 /* //////////////////////////////////////////////////////////////////////////////////////
  * interfaces
  */
+
+/*! uspf init 
+ *
+ * @return              tt_true or tt_false
+ */
+tt_bool_t               uspf_init(tt_void_t);
 
 /*! init and register uspf msg hub
  *

@@ -9,6 +9,9 @@
  * @brief      uSPF.c file
  */
 
+#define TT_TRACE_MODULE_NAME    "uspf_lib"
+#define TT_TRACE_DEBUG          1
+
 /* //////////////////////////////////////////////////////////////////////////////////////
  * includes
  */
@@ -30,6 +33,8 @@ static tt_spinlock_t   s_lock = TT_SPINLOCK_INITIALIZER;
  */
 tt_bool_t uspf_init(tt_void_t)
 {
+    tt_trace_d("uspf init");
+
     // init list header
     tt_list_entry_init(&s_uspf_hub_list, uspf_hub_list_t, entry, NULL);
 
@@ -43,6 +48,7 @@ tt_bool_t uspf_register(uspf_hub_ref_t hub, tt_int_t (*echo)(tt_void_t* param))
 
     // check if have been registered
     tt_check_return_val(hub->pdata == tt_null, tt_false);
+
 
     // init hub and append to hub list
     do
@@ -75,7 +81,7 @@ tt_bool_t uspf_register(uspf_hub_ref_t hub, tt_int_t (*echo)(tt_void_t* param))
 uspf_node_ref_t uspf_subscribe(uspf_hub_ref_t hub, uspf_sync_flag_t flag, tt_void_t (*cb)(tt_void_t* param))
 {
     tt_assert_and_check_abort(hub); 
-    tt_check_return_val(hub->link_num <= USPF_LINK_NAME_MAX, tt_null);
+    tt_check_return_val(hub->node_num <= USPF_LINK_NAME_MAX, tt_null);
     
     // create node
     uspf_node_ref_t node = (uspf_node_ref_t)tt_malloc(sizeof(uspf_node_t));
@@ -84,15 +90,14 @@ uspf_node_ref_t uspf_subscribe(uspf_hub_ref_t hub, uspf_sync_flag_t flag, tt_voi
     // init node
     node->renewal = tt_false;
     node->cb      = cb;
-    node->next    = tt_null;
     if(flag == USPF_SYNC) node->event = tt_semaphore_init(0);
 
     // lock
     tt_spinlock_enter(&s_lock);
 
     // add node to node_list
-    tt_list_entry_insert_tail(&hub->node_list, node);
-    hub->link_num++;
+    tt_list_entry_insert_tail(&hub->node_list, &node->entry);
+    hub->node_num++;
 
     // unlock
     tt_spinlock_leave(&s_lock);
@@ -108,13 +113,13 @@ tt_bool_t uspf_unsubscribe(uspf_hub_ref_t hub, uspf_node_ref_t node)
 
     tt_spinlock_enter(&s_lock);
 
-    tt_list_entry_remove(hub->node_list, node->entry);
+    tt_list_entry_remove(&hub->node_list, &node->entry);
 
     tt_spinlock_leave(&s_lock);
 
     // free node
     tt_free(node);
-    hub->link_num--;
+    hub->node_num--;
 
     return tt_true;
 }
@@ -152,7 +157,7 @@ tt_bool_t uspf_publish(uspf_hub_ref_t hub, const void* data)
     // walk node_list, can't be reentrant, also can't put it in lock area
     tt_for_all(uspf_node_ref_t, node2, iterator)
     {
-        if(node->cb != tt_null) node2->cb(hub->pdata);
+        if(node2->cb != tt_null) node2->cb(hub->pdata);
     }
 
     return tt_true;    

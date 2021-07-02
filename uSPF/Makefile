@@ -1,6 +1,10 @@
 CC = gcc
-CFLAGS =  -Wall -O2 -fPIC -I./
+
+CFLAGS 	+=  -Wall -O2 -fPIC -I./
+CFLAGS  +=  -I../dep/install/include/ttlib_mirco 
+
 LDFLAGS = -shared -lpthread
+
 INSTALL = /usr/bin/install -c
 
 TARGET=libuspf.a
