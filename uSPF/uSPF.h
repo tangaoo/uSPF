@@ -112,6 +112,12 @@ __tt_extern_c_enter__
  */
 tt_bool_t               uspf_init(tt_void_t);
 
+/*! uspf exit 
+ *
+ * @return              tt_void_t
+ */
+tt_void_t               uspf_exit(tt_void_t);
+
 /*! init and register uspf msg hub
  *
  * @param hub           the msg hub
