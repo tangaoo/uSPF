@@ -1,11 +1,11 @@
 ## uSPF
 
-* uSPF(Micro Subscribe Publish Frame)是一个轻量级**发布-订阅**模式的框架，适合嵌入式应用。 
+* uSPF(Micro Subscribe Publish Frame)是一个轻量级**发布-订阅**模式的框架，甚至没有 broker(代理)，特别适合嵌入式应用。 
 
 ## 编译
 
 ```console
-git clone https://github.com/tangaoo/uSPF.git
+git clone https://github.com/tangaoo/uSPF.git --recursive
 
 cd uSPF
 

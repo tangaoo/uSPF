@@ -1,7 +1,7 @@
 CC = gcc
 
 CFLAGS 	+=  -Wall -O2 -fPIC -I./
-CFLAGS  +=  -I../dep/install/include/ttlib_mirco 
+CFLAGS  +=  -I../dep/install/include/ttlib_micro 
 
 INSTALL = /usr/bin/install -c
 

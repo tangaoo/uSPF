@@ -1,11 +1,11 @@
 CC = gcc
 
 CFLAGS   =  -Wall -O2 -I./ 
-CFLAGS  +=  -I../dep/install/include/ttlib_mirco 
+CFLAGS  +=  -I../dep/install/include/ttlib_micro 
 
 # LDFLAGS = -lttlib_mirco  -L../dep/install/lib -lpthread
 LDFLAGS = -luspf -L../uSPF 
-LDFLAGS += -lttlib_mirco  -L../dep/install/lib
+LDFLAGS += -lttlib_micro  -L../dep/install/lib
 LDFLAGS += -lpthread
 
 INSTALL = /usr/bin/install -c
