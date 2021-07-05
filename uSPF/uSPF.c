@@ -44,23 +44,40 @@ tt_void_t uspf_exit(tt_void_t)
 {
     tt_trace_d("uspf exit");
 
+    tt_iterator_ref_t iterator_hub = tt_list_entry_iterator(&s_uspf_hub_list);
+    // tt_trace_d("iterator_hub, %p", iterator_hub);
     // walk hub list
-    tt_for_all(uspf_hub_ref_t, item_hub, tt_list_entry_iterator(&s_uspf_hub_list))
+    tt_for_all(uspf_hub_list_ref_t, item_hub, iterator_hub)
     {
-        tt_trace_d("free hub pdata, %p", item_hub->pdata);
+        tt_trace_d("hub, %p", item_hub->hub);
+        tt_trace_d("free hub pdata, %p", item_hub->hub->pdata);
         // free pdata
-        if(item_hub->pdata) tt_free(item_hub);
+        if(item_hub->hub->pdata) tt_free(item_hub->hub->pdata);
 
-        // free node
-        tt_for_all(uspf_node_ref_t, item_node, tt_list_entry_iterator(&item_hub->node_list))
+        tt_iterator_ref_t iterator_node = tt_list_entry_iterator(&item_hub->hub->node_list);
+
+        /// walk uspf_node
+        tt_size_t itor = tt_iterator_head(iterator_node);
+
+        while (itor != tt_iterator_tail(iterator_node))
         {
-            tt_list_entry_remove(&item_hub->node_list, &item_node->entry);
+            // save next before remove
+            tt_size_t next = tt_iterator_next(iterator_node, itor);
 
-            tt_trace_d("free node, %p", item_node);
-            //free node
-            if(item_node) tt_free(item_node);
+            // item
+            uspf_node_ref_t item = tt_iterator_item(iterator_node, itor);
+
+            // remove
+            tt_iterator_remove(iterator_node, itor);
+
+            tt_trace_d("free node, %p", item);
+            if(item) tt_free(item);
+
+            // size
+            item_hub->hub->node_num--;
+
+            itor = next;
         }
-
     }
 }
 
@@ -90,6 +107,7 @@ tt_bool_t uspf_register(uspf_hub_ref_t hub, tt_int_t (*echo)(tt_void_t* param))
 
         uspf_hub_list_ref_t node = (uspf_hub_list_ref_t)tt_malloc(sizeof(uspf_hub_list_t));
         node->hub = hub;
+        tt_trace_d("hub, %p", node->hub);
         tt_list_entry_insert_tail(&s_uspf_hub_list, &node->entry);
 
         // unlock
