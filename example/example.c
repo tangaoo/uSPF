@@ -101,7 +101,7 @@ tt_void_t* demo_subscribe_async_thread(tt_void_t* arg)
 tt_void_t* demo_subscribe_sync_thread(tt_void_t* arg)
 {
     tt_trace_d("sync, subscribe thread");
-    tt_bool_t ok = tt_false;
+
     // subsrcibe topic
     uspf_node_ref_t node = uspf_subscribe(USPF_MSG_ID(demo_topic), USPF_SYNC, tt_null);
 

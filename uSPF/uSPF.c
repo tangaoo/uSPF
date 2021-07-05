@@ -10,7 +10,7 @@
  */
 
 #define TT_TRACE_MODULE_NAME    "uspf_lib"
-#define TT_TRACE_DEBUG          1
+#define TT_TRACE_MODULE_DEBUG   0
 
 /* //////////////////////////////////////////////////////////////////////////////////////
  * includes
