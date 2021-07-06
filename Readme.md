@@ -1,8 +1,10 @@
 ## uSPF
 
-* uSPF(Micro Subscribe Publish Frame)是一个轻量级**发布-订阅**模式的框架，甚至没有 broker(代理)，特别适合嵌入式应用。 
+* uSPF(Micro Subscribe Publish Frame)是一个轻量级**发布-订阅**模式的框架，甚至没有 broker(代理)，特别适合嵌入式应用，详细文档见[uSPF微型框架的介绍](https://tangaoo.github.io/2021/07/05/uSPF/)。
 
 ## 编译
+
+* uSPF 库 引用了 [ttlib_mirco](https://github.com/tangaoo/ttlib_micro)，所以需要 **--recursive** 后缀。
 
 ```console
 git clone https://github.com/tangaoo/uSPF.git --recursive
@@ -16,7 +18,7 @@ make
 
 * uSPF 框架依赖 [ttlib_mirco](https://github.com/tangaoo/ttlib_micro)库(即工程中dep目录)，具体可见项目主页。
 
-## 接口
+## 用法
 
 #### 定义 
 
@@ -38,11 +40,17 @@ uspf_register(USPF_MSG_ID(demo_topic), NULL);
 
 #### 订阅
 
+* 异步注册，poll 时不会阻塞。
+
 ```c++
-uspf_node_ref_t node = uspf_subscribe(USPF_MSG_ID(demo_topic), 0, NULL);
+uspf_node_ref_t node = uspf_subscribe(USPF_MSG_ID(demo_topic), USPF_ASYNC, tt_null);
 ```
-* 注册同时可以传一个回调函数，该回调函数会在发布模块中被执行。
-* 如果需要**同步轮询**，需要定义event。
+
+* 同步注册，poll 时会阻塞。
+
+```c++
+uspf_node_ref_t node = uspf_subscribe(USPF_MSG_ID(demo_topic), USPF_SYNC, tt_null);
+```
 
 #### 发布
 
@@ -52,8 +60,15 @@ uspf_publish(USPF_MSG_ID(demo_topic), &data);
 
 #### 轮询（同步/非同步）
 
+* 异步轮询，非阻塞。
+
 ```c++
 uspf_poll(node);
+```
+
+* 同步轮询，阻塞。
+
+```c++
 uspf_poll_sync(node);
 ```
 
