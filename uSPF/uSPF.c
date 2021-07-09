@@ -52,7 +52,11 @@ tt_void_t uspf_exit(tt_void_t)
         tt_trace_d("hub, %p", item_hub->hub);
         tt_trace_d("free hub pdata, %p", item_hub->hub->pdata);
         // free pdata
-        if(item_hub->hub->pdata) tt_free(item_hub->hub->pdata);
+        if(item_hub->hub->pdata) 
+        {
+            tt_free(item_hub->hub->pdata);
+            item_hub->hub->pdata = tt_null;
+        }
 
         tt_iterator_ref_t iterator_node = tt_list_entry_iterator(&item_hub->hub->node_list);
 
@@ -88,7 +92,6 @@ tt_bool_t uspf_register(uspf_hub_ref_t hub, tt_int_t (*echo)(tt_void_t* param))
 
     // check if have been registered
     tt_check_return_val(hub->pdata == tt_null, tt_false);
-
 
     // init hub and append to hub list
     do
@@ -138,7 +141,6 @@ uspf_node_ref_t uspf_subscribe(uspf_hub_ref_t hub, uspf_sync_flag_t flag, tt_voi
         node->event = tt_semaphore_init(0);
         tt_trace_d("node->event, %p", node->event);
     }
-
 
     // lock
     tt_spinlock_enter(&s_lock);
