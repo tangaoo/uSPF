@@ -89,3 +89,4 @@ uspf_copy(USPF_MSG_ID(demo_topic), node, &data);
 * [x] 引入 ttlib_mirco 库，替换目前的链表操作;
 * [ ] 目前仅支持数据包形式订阅，后续需要支持纯流数据的支持，用 ringbuffer 实现;
 * [ ] 目前仅支持单进程内部订阅与发布，后续需支持多进程。
+* [ ] 引入 protobuf。
