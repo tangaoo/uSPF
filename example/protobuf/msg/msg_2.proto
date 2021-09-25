@@ -1,0 +1,7 @@
+syntax = "proto3";
+  
+message msg_2 {
+    int32 id = 1;
+    string name = 2;
+    int32 socre = 3;
+}
