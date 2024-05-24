@@ -54,8 +54,10 @@ typedef struct __uspf_node_t
 
 }uspf_node_t, *uspf_node_ref_t;
 
-typedef struct __uspf_hub_t
+typedef struct __uspf_msg_t
 {
+    tt_list_entry_t        entry;
+
     const tt_char_t*       msg_name;
     const tt_size_t        msg_size;
     tt_void_t*             pdata;
@@ -63,19 +65,44 @@ typedef struct __uspf_hub_t
     tt_int_t               (*echo)(tt_void_t* param);
     tt_uint64_t            last_pub_time;
     tt_f32_t               freq;
+    tt_uint32_t            priority;      // 
     tt_size_t              node_num;
 
-    // list header of [uspf_node_t]
-    tt_list_entry_head_t   node_list; 
+    // list header of subscribe 
+    tt_list_entry_head_t   subscribe_list; 
 
-}uspf_hub_t, *uspf_hub_ref_t; 
+}uspf_msg_t, *uspf_msg_ref_t; 
 
-typedef struct __uspf_hub_list_t
+typedef struct __uspf_actor_t
 {
     tt_list_entry_t        entry;
-    uspf_hub_ref_t         hub;
 
-}uspf_hub_list_t, *uspf_hub_list_ref_t;
+    tt_uint32_t            priority;
+    tt_uint32_t            mode;
+    tt_bool_t              enable;
+
+}uspf_actor_t, *uspf_actor_ref_t;
+
+struct __uspf_reactor_t;
+typedef void (* uspf_msg_handler)(struct __uspf_reactor_t *const reactor, uspf_msg_t const * const msg);
+typedef struct __uspf_reactor_t
+{
+    uspf_actor_t           actor;
+    uspf_msg_handler       msg_handler;
+}uspf_reactor_t, *uspf_reactor_ref_t;
+
+
+typedef struct __uspf_t
+{
+    tt_bool_t              enable;
+    tt_bool_t              running;              
+    tt_bool_t              have_init;              
+
+    tt_list_entry_head_t   reg_msg_list;     // message list have register to uspf
+    tt_list_entry_head_t   reg_actor_list;   // actor list have register to uspf
+    tt_list_entry_head_t   pub_msg_list;     // message list have publish
+
+}uspf_t, *uspf_ref_t;
 
 /* //////////////////////////////////////////////////////////////////////////////////////
  * helper macros
@@ -85,14 +112,15 @@ typedef struct __uspf_hub_list_t
 #define USPF_MSG_ID(name)         (&__uspf_##name)
 
 // declare uspf msg 
-#define USPF_MSG_DECLARE(name)    extern uspf_hub_t __uspf_##name    
+#define USPF_MSG_DECLARE(name)    extern uspf_msg_t __uspf_##name    
 
 // define uspf msg 
 #define USPF_MSG_DEFINE(name, size)     \
-    uspf_hub_t __uspf_##name = {        \
+    tt_uint8_t __uspf_##name_data[size];\
+    uspf_msg_t __uspf_##name = {        \
             .msg_name        = #name,   \
             .msg_size        = size,    \
-            .pdata           = tt_null, \
+            .pdata           = __uspf_##name_data, \
             .published       = 0,       \
             .echo            = tt_null, \
             .last_pub_time   = 0,       \
@@ -118,6 +146,22 @@ tt_bool_t               uspf_init(tt_void_t);
  */
 tt_void_t               uspf_exit(tt_void_t);
 
+/*! uspf run 
+ *
+ * @return              tt_void_t
+ */
+tt_void_t               uspf_run(tt_void_t);
+
+/*! reactor init
+ *
+ * @param reactor       the reactor
+ * @param priority      the reactor's priority
+ * @param param         the parameter
+ *
+ * @return              tt_true or tt_false
+ */
+tt_bool_t               uspf_reactor_init(void *reactor,  tt_uint8_t priority, void const *const param);    
+
 /*! init and register uspf msg hub
  *
  * @param hub           the msg hub
@@ -125,8 +169,10 @@ tt_void_t               uspf_exit(tt_void_t);
  *
  * @return              tt_true or tt_false
  */
-tt_bool_t               uspf_register(uspf_hub_ref_t hub, tt_int_t (*echo)(tt_void_t* param));    
+tt_bool_t               uspf_register(uspf_msg_ref_t hub, tt_int_t (*echo)(tt_void_t* param));    
 
+tt_int_t uspf_subscribe(uspf_msg_ref_t msg, uspf_actor_ref_t actor);
+#if 0
 /*! subscribe uspf msg
  *
  * @param hub           the msg hub
@@ -135,7 +181,8 @@ tt_bool_t               uspf_register(uspf_hub_ref_t hub, tt_int_t (*echo)(tt_vo
  *
  * @return              the uspf node(used for poll、coye msg...) or tt_null 
  */
-uspf_node_ref_t         uspf_subscribe(uspf_hub_ref_t hub, uspf_sync_flag_t flag, tt_void_t (*cb)(tt_void_t* param));
+uspf_node_ref_t         uspf_subscribe(uspf_msg_ref_t hub, uspf_sync_flag_t flag, tt_void_t (*cb)(tt_void_t* param));
+#endif
 
 /*! unsubscribe uspf msg
  *
@@ -144,7 +191,7 @@ uspf_node_ref_t         uspf_subscribe(uspf_hub_ref_t hub, uspf_sync_flag_t flag
  *
  * @return              tt_true or tt_false
  */
-tt_bool_t               uspf_unsubscribe(uspf_hub_ref_t hub, uspf_node_ref_t node);
+tt_bool_t               uspf_unsubscribe(uspf_msg_ref_t hub, uspf_node_ref_t node);
 
 /*! publish data 
  *
@@ -153,7 +200,7 @@ tt_bool_t               uspf_unsubscribe(uspf_hub_ref_t hub, uspf_node_ref_t nod
  *
  * @return              tt_true or tt_false
  */
-tt_bool_t               uspf_publish(uspf_hub_ref_t hub, const tt_void_t* data);
+tt_bool_t               uspf_publish(uspf_msg_ref_t hub, const tt_void_t* data);
 
 /*! uspf poll async
  *
@@ -180,7 +227,7 @@ tt_bool_t               uspf_poll_sync(uspf_node_ref_t node, tt_uint32_t timeout
  *
  * @return              tt_true or tt_false
  */
-tt_bool_t               uspf_copy(uspf_hub_ref_t hub, uspf_node_ref_t node, tt_void_t* buff);
+tt_bool_t               uspf_copy(uspf_msg_ref_t hub, uspf_node_ref_t node, tt_void_t* buff);
 
 /*! copy data from hub
  *
@@ -189,7 +236,7 @@ tt_bool_t               uspf_copy(uspf_hub_ref_t hub, uspf_node_ref_t node, tt_v
  *
  * @return              tt_true or tt_false
  */
-tt_bool_t               uspf_copy_hub(uspf_hub_ref_t hub, tt_void_t* buff);
+tt_bool_t               uspf_copy_hub(uspf_msg_ref_t hub, tt_void_t* buff);
 
 /*! clear node
  *
@@ -198,6 +245,8 @@ tt_bool_t               uspf_copy_hub(uspf_hub_ref_t hub, tt_void_t* buff);
  * @return              tt_true or tt_false
  */
 tt_bool_t               uspf_node_clear(uspf_node_ref_t node);    
+
+
 
 __tt_extern_c_leave__
 
