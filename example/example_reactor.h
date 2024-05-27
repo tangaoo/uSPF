@@ -1,0 +1,18 @@
+
+#ifndef EXAMPLE_REACTOR_H
+#define EXAMPLE_REACTOR_H
+
+/* //////////////////////////////////////////////////////////////////////////////////////
+ * includes
+ */
+#include "ttlib.h"
+#include "../uSPF/uSPF.h"
+
+
+/* //////////////////////////////////////////////////////////////////////////////////////
+ * interfaces
+ */
+tt_bool_t example_reactor_init(tt_uint8_t priority, void const *const param);
+
+
+#endif

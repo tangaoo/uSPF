@@ -38,22 +38,6 @@ typedef enum __uspf_sync_flag_t
 
 }uspf_sync_flag_t;
 
-typedef struct __uspf_node_t
-{
-    // single list entry
-    tt_list_entry_t        entry;
-
-    // flag
-    volatile tt_bool_t     renewal;
-
-    // semaphore
-    tt_semaphore_ref_t     event;
-
-    // cb
-    tt_void_t              (*cb)(tt_void_t* param);
-
-}uspf_node_t, *uspf_node_ref_t;
-
 typedef struct __uspf_msg_t
 {
     tt_list_entry_t        entry;
@@ -164,45 +148,45 @@ tt_void_t               uspf_run(tt_void_t);
  */
 tt_bool_t               uspf_reactor_init(uspf_msg_ref_t msg, void *reactor, tt_uint8_t priority, void const *const param);
 
-/*! init and register uspf msg hub
+/*! init and register uspf msg msg
  *
- * @param hub           the msg hub
+ * @param msg           the msg msg
  * @param echo          the cb function when need print the msg
  *
  * @return              tt_true or tt_false
  */
-tt_bool_t               uspf_register(uspf_msg_ref_t hub, tt_int_t (*echo)(tt_void_t* param));    
+tt_bool_t               uspf_register(uspf_msg_ref_t msg, tt_int_t (*echo)(tt_void_t* param));    
 
-tt_int_t                uspf_subscribe(uspf_msg_ref_t msg, uspf_actor_ref_t actor);
+// tt_int_t                uspf_subscribe(uspf_msg_ref_t msg, uspf_actor_ref_t actor);
 #if 0
 /*! subscribe uspf msg
  *
- * @param hub           the msg hub
+ * @param msg           the msg msg
  * @param event         the event used for sync; NULL for async
  * @param cb            the cb function, It will be call in publish
  *
  * @return              the uspf node(used for poll、coye msg...) or tt_null 
  */
-uspf_node_ref_t         uspf_subscribe(uspf_msg_ref_t hub, uspf_sync_flag_t flag, tt_void_t (*cb)(tt_void_t* param));
+uspf_node_ref_t         uspf_subscribe(uspf_msg_ref_t msg, uspf_sync_flag_t flag, tt_void_t (*cb)(tt_void_t* param));
 #endif
 
 /*! unsubscribe uspf msg
  *
- * @param hub           the msg hub
+ * @param msg           the msg msg
  * @param node          the uspf node
  *
  * @return              tt_true or tt_false
  */
-tt_bool_t               uspf_unsubscribe(uspf_msg_ref_t hub, uspf_actor_ref_t node);
+tt_bool_t               uspf_unsubscribe(uspf_msg_ref_t msg, uspf_actor_ref_t node);
 
 /*! publish data 
  *
- * @param hub           the msg hub
+ * @param msg           the msg msg
  * @param data          the data
  *
  * @return              tt_true or tt_false
  */
-tt_bool_t               uspf_publish(uspf_msg_ref_t hub, const tt_void_t* data);
+tt_bool_t               uspf_publish(uspf_msg_ref_t msg, const tt_void_t* data);
 
 /*! uspf poll async
  *
@@ -210,7 +194,7 @@ tt_bool_t               uspf_publish(uspf_msg_ref_t hub, const tt_void_t* data);
  *
  * @return              tt_true or tt_false
  */
-tt_bool_t               uspf_poll(uspf_node_ref_t node);
+// tt_bool_t               uspf_poll(uspf_node_ref_t node);
 
 /*! uspf poll sync
  *
@@ -219,26 +203,26 @@ tt_bool_t               uspf_poll(uspf_node_ref_t node);
  *
  * @return              tt_true or tt_false
  */
-tt_bool_t               uspf_poll_sync(uspf_node_ref_t node, tt_uint32_t timeout);
+// tt_bool_t               uspf_poll_sync(uspf_node_ref_t node, tt_uint32_t timeout);
 
 /*! copy data
  *
- * @param hub           the hub
+ * @param msg           the msg
  * @param node          the node
  * @param buff [O]      the buff
  *
  * @return              tt_true or tt_false
  */
-tt_bool_t               uspf_copy(uspf_msg_ref_t hub, uspf_node_ref_t node, tt_void_t* buff);
+// tt_bool_t               uspf_copy(uspf_msg_ref_t msg, uspf_node_ref_t node, tt_void_t* buff);
 
-/*! copy data from hub
+/*! copy data from msg
  *
- * @param hub           the hub
+ * @param msg           the msg
  * @param buff [O]      the buff
  *
  * @return              tt_true or tt_false
  */
-tt_bool_t               uspf_copy_hub(uspf_msg_ref_t hub, tt_void_t* buff);
+tt_bool_t               uspf_copy_hub(uspf_msg_ref_t msg, tt_void_t* buff);
 
 /*! clear node
  *
