@@ -53,14 +53,18 @@ tt_int_t main(tt_void_t)
     // register topic
     uspf_register(USPF_MSG_ID(demo_topic), tt_null);    
 
-    pthread_create(&t2, tt_null, demo_subscribe_sync_thread, tt_null);
+    // actor subscribe msg
+    uspf_reactor_t reactor;
+    uspf_reactor_init(USPF_MSG_ID(demo_topic), &reactor, 8, "reactor1");
+
+    // pthread_create(&t2, tt_null, demo_subscribe_sync_thread, tt_null);
     pthread_create(&t3, tt_null, demo_subscribe_async_thread, tt_null);
     sleep(1);
     pthread_create(&t1, tt_null, demo_publish_thread, tt_null);
 
     // join the thread
     pthread_join(t1, tt_null);
-    pthread_join(t2, tt_null);
+    // pthread_join(t2, tt_null);
     pthread_join(t3, tt_null);
 
     // exit uspf
@@ -85,8 +89,11 @@ tt_void_t* demo_subscribe_async_thread(tt_void_t* arg)
     tt_trace_d("async subscribe thread");
     tt_bool_t ok = tt_false;
     // subsrcibe topic
-    uspf_node_ref_t node = uspf_subscribe(USPF_MSG_ID(demo_topic), USPF_ASYNC, tt_null);
+    // uspf_node_ref_t node = uspf_subscribe(USPF_MSG_ID(demo_topic), USPF_ASYNC, tt_null);
 
+    uspf_run();
+
+#if 0
     do
     {
         ok = uspf_poll(node);
@@ -96,9 +103,13 @@ tt_void_t* demo_subscribe_async_thread(tt_void_t* arg)
     if(uspf_copy(USPF_MSG_ID(demo_topic), node, &data))
         tt_trace_d("async, data, %s, %d", data.name, data.a);
 
+#endif
+
     return tt_null;    
 }
 
+
+#if 0
 tt_void_t* demo_subscribe_sync_thread(tt_void_t* arg)
 {
     tt_trace_d("sync, subscribe thread");
@@ -114,3 +125,4 @@ tt_void_t* demo_subscribe_sync_thread(tt_void_t* arg)
 
     return tt_null;    
 }
+#endif

@@ -77,9 +77,11 @@ typedef struct __uspf_actor_t
 {
     tt_list_entry_t        entry;
 
+    const tt_char_t*       name;
     tt_uint32_t            priority;
     tt_uint32_t            mode;
     tt_bool_t              enable;
+    volatile tt_bool_t     renewal;
 
 }uspf_actor_t, *uspf_actor_ref_t;
 
@@ -160,7 +162,7 @@ tt_void_t               uspf_run(tt_void_t);
  *
  * @return              tt_true or tt_false
  */
-tt_bool_t               uspf_reactor_init(void *reactor,  tt_uint8_t priority, void const *const param);    
+tt_bool_t               uspf_reactor_init(uspf_msg_ref_t msg, void *reactor, tt_uint8_t priority, void const *const param);
 
 /*! init and register uspf msg hub
  *
@@ -171,7 +173,7 @@ tt_bool_t               uspf_reactor_init(void *reactor,  tt_uint8_t priority, v
  */
 tt_bool_t               uspf_register(uspf_msg_ref_t hub, tt_int_t (*echo)(tt_void_t* param));    
 
-tt_int_t uspf_subscribe(uspf_msg_ref_t msg, uspf_actor_ref_t actor);
+tt_int_t                uspf_subscribe(uspf_msg_ref_t msg, uspf_actor_ref_t actor);
 #if 0
 /*! subscribe uspf msg
  *
@@ -191,7 +193,7 @@ uspf_node_ref_t         uspf_subscribe(uspf_msg_ref_t hub, uspf_sync_flag_t flag
  *
  * @return              tt_true or tt_false
  */
-tt_bool_t               uspf_unsubscribe(uspf_msg_ref_t hub, uspf_node_ref_t node);
+tt_bool_t               uspf_unsubscribe(uspf_msg_ref_t hub, uspf_actor_ref_t node);
 
 /*! publish data 
  *
@@ -244,7 +246,7 @@ tt_bool_t               uspf_copy_hub(uspf_msg_ref_t hub, tt_void_t* buff);
  *
  * @return              tt_true or tt_false
  */
-tt_bool_t               uspf_node_clear(uspf_node_ref_t node);    
+tt_bool_t               uspf_node_clear(uspf_actor_ref_t node);    
 
 
 

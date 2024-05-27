@@ -181,7 +181,7 @@ uspf_node_ref_t uspf_subscribe(uspf_msg_ref_t hub, uspf_sync_flag_t flag, tt_voi
 }
 #endif
 
-tt_int_t uspf_unsubscribe(uspf_msg_ref_t msg, uspf_actor_ref_t actor)
+tt_bool_t uspf_unsubscribe(uspf_msg_ref_t msg, uspf_actor_ref_t actor)
 {
     tt_assert_and_check_abort(msg); 
 
@@ -235,16 +235,16 @@ tt_bool_t uspf_publish(uspf_msg_ref_t hub, const void* data)
     tt_spinlock_enter(&s_lock);
 
     // copy data
-    memcpy(hub->pdata, data, hub->msg_size);
+    // memcpy(hub->pdata, data, hub->msg_size);
 
     hub->published = 1;
 
     // walk subscribe_list
-    tt_for_all(uspf_node_ref_t, node1, iterator)
+    tt_for_all(uspf_actor_ref_t, node1, iterator)
     {
         // update flag
         node1->renewal = tt_true;
-        if(node1->event) tt_semaphore_post(node1->event, 1); 
+        // if(node1->event) tt_semaphore_post(node1->event, 1); 
         tt_trace_d("publish, node, %p", node1);
     }
 
@@ -252,10 +252,10 @@ tt_bool_t uspf_publish(uspf_msg_ref_t hub, const void* data)
     tt_spinlock_leave(&s_lock);
 
     // walk subscribe_list, can't be reentrant, also can't put it in lock area
-    tt_for_all(uspf_node_ref_t, node2, iterator)
-    {
-        if(node2->cb != tt_null) node2->cb(hub->pdata);
-    }
+    // tt_for_all(uspf_node_ref_t, node2, iterator)
+    // {
+    //     if(node2->cb != tt_null) node2->cb(hub->pdata);
+    // }
 
     return tt_true;    
 }
@@ -271,7 +271,7 @@ tt_bool_t uspf_poll_sync(uspf_node_ref_t node, unsigned int timeout)
 {
     tt_assert_and_check_return_val(node, tt_false);
 
-    tt_semaphore_wait(node->event);
+    // tt_semaphore_wait(node->event);
 
     return tt_true;
 }
@@ -312,7 +312,7 @@ tt_bool_t uspf_copy_hub(uspf_msg_ref_t hub, tt_void_t* buff)
     return tt_true;
 }
 
-tt_bool_t uspf_node_clear(uspf_node_ref_t node)
+tt_bool_t uspf_node_clear(uspf_actor_ref_t node)
 {
     tt_assert_and_check_return_val(node, tt_false);
 
@@ -323,3 +323,59 @@ tt_bool_t uspf_node_clear(uspf_node_ref_t node)
     return tt_true;
 }
 
+tt_bool_t uspf_reactor_init(uspf_msg_ref_t msg, void *reactor,  tt_uint8_t priority, void const *const param)
+{
+    tt_assert_and_check_return_val(msg != NULL, tt_false);
+    tt_assert_and_check_return_val(reactor != NULL, tt_false);
+    tt_assert_and_check_return_val(priority >= 0 && priority < 256, tt_false);
+
+    uspf_actor_ref_t actor = &(((uspf_reactor_ref_t)reactor)->actor);
+    actor->priority = priority;
+    actor->renewal = tt_false;
+    actor->mode = 0; //TODO
+    actor->enable = tt_true;
+    actor->name = param;
+
+    // lock
+    tt_spinlock_enter(&s_lock);
+    tt_list_entry_insert_tail(&msg->subscribe_list, &actor->entry);
+
+    // unlock
+    tt_spinlock_leave(&s_lock);
+
+    return tt_true;
+}
+
+tt_void_t uspf_run(tt_void_t)
+{
+    tt_assert_and_check_return(s_uspf.have_init == tt_true);
+
+    // running 
+    s_uspf.running == tt_true;
+
+    while (s_uspf.enable)
+    {
+        s_uspf.running = tt_true;
+
+        tt_iterator_ref_t msg_iterator = tt_list_entry_iterator(&s_uspf.reg_msg_list);
+
+        tt_spinlock_enter(&s_lock);
+
+        tt_for_all(uspf_msg_ref_t, msg1, msg_iterator)
+        {
+            tt_iterator_ref_t actor_iterator = tt_list_entry_iterator(&msg1->subscribe_list);
+            tt_for_all(uspf_actor_ref_t, actor1, actor_iterator)
+            {
+                if(actor1->renewal == tt_true)
+                {
+                    tt_trace_i("actor do: msg,%s, atctor,%s", msg1->msg_name, actor1->name);
+                    actor1->renewal = tt_false;
+                }
+            }
+        }
+        tt_spinlock_leave(&s_lock);
+    }
+    
+
+    s_uspf.running = tt_false;
+}
