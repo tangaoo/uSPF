@@ -28,6 +28,9 @@
 // max number of subscrib to one msg 
 #define USPF_LINK_NAME_MAX              16
 
+#define USPF_ACTOR_CAST(cast)           ((uspf_actor_node_ref_t)(cast))
+#define USPF_REACTOR_CAST(cast)         ((uspf_reactor_node_ref_t)(cast))
+
 /* //////////////////////////////////////////////////////////////////////////////////////
  * types
  */
@@ -50,6 +53,7 @@ typedef struct __uspf_msg_t
     tt_uint64_t            last_pub_time;
     tt_f32_t               freq;
     tt_uint32_t            priority;      // 
+    tt_bool_t              enable;       
     tt_size_t              node_num;
 
     // list header of subscribe 
@@ -59,15 +63,18 @@ typedef struct __uspf_msg_t
 
 typedef struct __uspf_actor_t
 {
-    tt_list_entry_t        entry;
-
     const tt_char_t*       name;
     tt_uint32_t            priority;
     tt_uint32_t            mode;
     tt_bool_t              enable;
     volatile tt_bool_t     renewal;
-
 }uspf_actor_t, *uspf_actor_ref_t;
+
+typedef struct __uspf_actor_node_t
+{
+    tt_list_entry_t        entry;
+    uspf_actor_ref_t       actor;
+}uspf_actor_node_t, *uspf_actor_node_ref_t;
 
 struct __uspf_reactor_t;
 typedef void (* uspf_msg_handler)(struct __uspf_reactor_t *const reactor, uspf_msg_t const * const msg);
@@ -77,6 +84,13 @@ typedef struct __uspf_reactor_t
     uspf_msg_handler       msg_handler;
 }uspf_reactor_t, *uspf_reactor_ref_t;
 
+typedef struct __uspf_reactor_node_t
+{
+    tt_list_entry_t        entry;
+    uspf_reactor_ref_t     reactor;
+    tt_uint_t              debug;
+
+}uspf_reactor_node_t, *uspf_reactor_node_ref_t;
 
 typedef struct __uspf_t
 {
@@ -85,7 +99,6 @@ typedef struct __uspf_t
     tt_bool_t              have_init;              
 
     tt_list_entry_head_t   reg_msg_list;     // message list have register to uspf
-    tt_list_entry_head_t   reg_actor_list;   // actor list have register to uspf
     tt_list_entry_head_t   pub_msg_list;     // message list have publish
 
 }uspf_t, *uspf_ref_t;
@@ -101,17 +114,19 @@ typedef struct __uspf_t
 #define USPF_MSG_DECLARE(name)    extern uspf_msg_t __uspf_##name    
 
 // define uspf msg 
-#define USPF_MSG_DEFINE(name, size)     \
-    tt_uint8_t __uspf_##name_data[size];\
+#define USPF_MSG_DEFINE(name, size, prior)     \
+    tt_uint8_t __uspf_data_##name[size];\
     uspf_msg_t __uspf_##name = {        \
             .msg_name        = #name,   \
             .msg_size        = size,    \
-            .pdata           = __uspf_##name_data, \
+            .pdata           =  __uspf_data_##name, \
             .published       = 0,       \
             .echo            = tt_null, \
             .last_pub_time   = 0,       \
             .freq            = 0.0f,    \
             .node_num        = 0,       \
+            .priority        = prior,\
+            .enable          = tt_false\
     }                                    
 
 __tt_extern_c_enter__
@@ -138,6 +153,12 @@ tt_void_t               uspf_exit(tt_void_t);
  */
 tt_void_t               uspf_run(tt_void_t);
 
+/*! uspf start 
+ *
+ * @return              tt_void_t
+ */
+tt_void_t               uspf_start(tt_void_t);
+
 /*! reactor init
  *
  * @param reactor       the reactor
@@ -146,7 +167,7 @@ tt_void_t               uspf_run(tt_void_t);
  *
  * @return              tt_true or tt_false
  */
-tt_bool_t               uspf_reactor_init(uspf_msg_ref_t msg, void *reactor, tt_uint8_t priority, void const *const param);
+tt_bool_t               uspf_reactor_init(uspf_msg_ref_t msg, void *reactor_node, tt_uint8_t priority, void const *const param);
 
 /*! init and register uspf msg msg
  *
@@ -157,27 +178,15 @@ tt_bool_t               uspf_reactor_init(uspf_msg_ref_t msg, void *reactor, tt_
  */
 tt_bool_t               uspf_register(uspf_msg_ref_t msg, tt_int_t (*echo)(tt_void_t* param));    
 
-// tt_int_t                uspf_subscribe(uspf_msg_ref_t msg, uspf_actor_ref_t actor);
-#if 0
-/*! subscribe uspf msg
- *
- * @param msg           the msg msg
- * @param event         the event used for sync; NULL for async
- * @param cb            the cb function, It will be call in publish
- *
- * @return              the uspf node(used for poll、coye msg...) or tt_null 
- */
-uspf_node_ref_t         uspf_subscribe(uspf_msg_ref_t msg, uspf_sync_flag_t flag, tt_void_t (*cb)(tt_void_t* param));
-#endif
 
 /*! unsubscribe uspf msg
  *
  * @param msg           the msg msg
- * @param node          the uspf node
+ * @param actor         the uspf actor
  *
  * @return              tt_true or tt_false
  */
-tt_bool_t               uspf_unsubscribe(uspf_msg_ref_t msg, uspf_actor_ref_t node);
+tt_bool_t               uspf_unsubscribe(uspf_msg_ref_t msg, uspf_actor_node_ref_t actor);
 
 /*! publish data 
  *
@@ -187,51 +196,6 @@ tt_bool_t               uspf_unsubscribe(uspf_msg_ref_t msg, uspf_actor_ref_t no
  * @return              tt_true or tt_false
  */
 tt_bool_t               uspf_publish(uspf_msg_ref_t msg, const tt_void_t* data);
-
-/*! uspf poll async
- *
- * @param node          the node
- *
- * @return              tt_true or tt_false
- */
-// tt_bool_t               uspf_poll(uspf_node_ref_t node);
-
-/*! uspf poll sync
- *
- * @param node          the node
- * @param timeout       the time out
- *
- * @return              tt_true or tt_false
- */
-// tt_bool_t               uspf_poll_sync(uspf_node_ref_t node, tt_uint32_t timeout);
-
-/*! copy data
- *
- * @param msg           the msg
- * @param node          the node
- * @param buff [O]      the buff
- *
- * @return              tt_true or tt_false
- */
-// tt_bool_t               uspf_copy(uspf_msg_ref_t msg, uspf_node_ref_t node, tt_void_t* buff);
-
-/*! copy data from msg
- *
- * @param msg           the msg
- * @param buff [O]      the buff
- *
- * @return              tt_true or tt_false
- */
-tt_bool_t               uspf_copy_hub(uspf_msg_ref_t msg, tt_void_t* buff);
-
-/*! clear node
- *
- * @param node          the node
- *
- * @return              tt_true or tt_false
- */
-tt_bool_t               uspf_node_clear(uspf_actor_ref_t node);    
-
 
 
 __tt_extern_c_leave__

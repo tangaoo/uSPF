@@ -38,7 +38,6 @@ tt_bool_t uspf_init(tt_void_t)
     // init register message list 
     tt_list_entry_init(&s_uspf.reg_msg_list, uspf_msg_t, entry, tt_null);
     tt_list_entry_init(&s_uspf.pub_msg_list, uspf_msg_t, entry, tt_null);
-    tt_list_entry_init(&s_uspf.reg_actor_list, uspf_actor_t, entry, tt_null);
 
     s_uspf.enable = tt_true;
     s_uspf.running = tt_false;
@@ -46,6 +45,11 @@ tt_bool_t uspf_init(tt_void_t)
     s_uspf.have_init = tt_true;
 
     return tt_true;
+}
+
+tt_void_t uspf_start(tt_void_t)
+{
+    s_uspf.enable = tt_true;
 }
 
 // TODO
@@ -58,8 +62,8 @@ tt_void_t uspf_exit(tt_void_t)
     // walk msg list
     tt_for_all(uspf_msg_ref_t, item_msg, iterator_msg)
     {
-        tt_trace_d("msg, %p", item_msg->msg);
-        tt_trace_d("free msg pdata, %p", item_msg->msg->pdata);
+        tt_trace_d("msg, %p", item_msg->msg_name);
+        tt_trace_d("free msg pdata, %p", item_msg->pdata);
         // free pdata
         if(item_msg->pdata) 
         {
@@ -106,27 +110,35 @@ tt_void_t uspf_run(tt_void_t)
         tt_iterator_ref_t msg_iterator = tt_list_entry_iterator(&s_uspf.reg_msg_list);
 
         tt_spinlock_enter(&s_lock);
-
+        tt_trace_d("msg size %d", tt_list_entry_size(&s_uspf.reg_msg_list));
         tt_for_all(uspf_msg_ref_t, msg1, msg_iterator)
         {
-            tt_iterator_ref_t actor_iterator = tt_list_entry_iterator(&msg1->subscribe_list);
-            tt_for_all(uspf_actor_ref_t, actor1, actor_iterator)
+            if(msg1->published == tt_true)
             {
-                uspf_reactor_ref_t reactor = (uspf_reactor_ref_t)actor1;
-                if(actor1->renewal == tt_true)
+                tt_iterator_ref_t actor_iterator = tt_list_entry_iterator(&msg1->subscribe_list);
+                tt_for_all(uspf_actor_node_ref_t, actor_node, actor_iterator)
                 {
-                    if(reactor->msg_handler)
-                        reactor->msg_handler(reactor, msg1);
-                    // tt_trace_i("actor do: [msg],%s, [atctor],%s", msg1->msg_name, actor1->name);
-                    actor1->renewal = tt_false;
+                    uspf_reactor_node_ref_t reactor_node = (uspf_reactor_node_ref_t)actor_node;
+                    tt_trace_d("reactor_node,%x, reactor,%x, handle,%x, %d", reactor_node, reactor_node->reactor, reactor_node->reactor->msg_handler, reactor_node->debug);
+                    // if(actor_node->actor->renewal == tt_true)
+                    {
+                        if (reactor_node->reactor->msg_handler != NULL)
+                        {
+                            reactor_node->reactor->msg_handler(reactor_node->reactor, msg1);
+                        }
+                        // actor_node->actor->renewal = tt_false;
+                    }
                 }
+                msg1->published = tt_false;
+
             }
         }
+
         tt_spinlock_leave(&s_lock);
     }
     
-
     s_uspf.running = tt_false;
+    
 }
 
 tt_bool_t uspf_register(uspf_msg_ref_t msg, tt_int_t (*echo)(tt_void_t* param))
@@ -137,22 +149,76 @@ tt_bool_t uspf_register(uspf_msg_ref_t msg, tt_int_t (*echo)(tt_void_t* param))
     // check if msg must be static memory allocation
     tt_check_return_val(msg->pdata != tt_null, tt_false);
 
+    // check if msg register again
+    tt_check_return_val(msg->enable == tt_false, tt_false);
+
     // init msg and append to msg list
     do
     {
-        // create data
-        // msg->pdata = tt_malloc0(msg->msg_size);
-        tt_trace_d("register, msg->pdata, %p", msg->pdata);
+        tt_trace_d("register, msg, %x", msg);
         msg->echo = echo;
-        tt_check_break(msg->pdata != tt_null);
 
         // init subscribe_list
-        tt_list_entry_init(&msg->subscribe_list, uspf_actor_t, entry, tt_null); // TODO uspf_actor_t have a little problem
+        tt_list_entry_init(&msg->subscribe_list, uspf_actor_node_t, entry, tt_null);
 
         // lock
         tt_spinlock_enter(&s_lock);
-        tt_list_entry_insert_tail(&s_uspf.reg_msg_list, &msg->entry);
 
+        tt_size_t size = tt_list_entry_size(&s_uspf.reg_msg_list);
+        tt_trace_d("size, %d", size);
+        if(size >= 2)
+        {
+            uspf_msg_ref_t msg1 = tt_null;
+            uspf_msg_ref_t msg2 = tt_null;
+            tt_list_entry_ref_t node_tail = tt_list_entry_tail(&s_uspf.reg_msg_list);
+            tt_list_entry_ref_t node_head = tt_list_entry_head(&s_uspf.reg_msg_list);
+
+            tt_iterator_ref_t iterator = tt_list_entry_iterator(&s_uspf.reg_msg_list);
+
+            if(msg->priority >= ((uspf_msg_ref_t)node_tail)->priority)
+            {
+                tt_list_entry_insert_tail(&s_uspf.reg_msg_list, &msg->entry);
+            }
+            else if(msg->priority < ((uspf_msg_ref_t)node_head)->priority)
+            {
+                tt_list_entry_insert_head(&s_uspf.reg_msg_list, &msg->entry);
+            }
+            else
+            {
+                // walk list
+                tt_size_t entry = tt_iterator_head(iterator);
+                while (entry != tt_iterator_tail(iterator))
+                {
+                    msg1 = (uspf_msg_ref_t)tt_iterator_item(iterator, entry);
+                    entry = tt_iterator_next(iterator, entry);
+                    msg2 = (uspf_msg_ref_t)tt_iterator_item(iterator, entry);
+                    if (entry != tt_iterator_tail(iterator))
+                    {
+                        if (msg->priority >= msg1->priority && msg->priority < msg2->priority)
+                            tt_list_entry_insert(&s_uspf.reg_msg_list, &msg1->entry, &msg->entry);
+                    }
+                }
+            }
+
+        }
+        else if(size == 1)
+        {
+            tt_list_entry_ref_t node_head = tt_list_entry_head(&s_uspf.reg_msg_list);
+            if(((uspf_msg_ref_t)node_head)->priority < msg->priority)
+                tt_list_entry_insert_tail(&s_uspf.reg_msg_list, &msg->entry);
+            else
+                tt_list_entry_insert_head(&s_uspf.reg_msg_list, &msg->entry);
+        }
+        else if(size == 0)
+        {
+            tt_list_entry_insert_tail(&s_uspf.reg_msg_list, &msg->entry);
+        }
+        else
+        {
+            tt_trace_w("uspf msg size %d", size);
+        }
+
+        msg->enable = tt_true;
         // unlock
         tt_spinlock_leave(&s_lock);
 
@@ -163,118 +229,66 @@ tt_bool_t uspf_register(uspf_msg_ref_t msg, tt_int_t (*echo)(tt_void_t* param))
     return ok;
 }
 
-tt_int_t uspf_subscribe(uspf_msg_ref_t msg, uspf_actor_ref_t actor, tt_uint8_t priority, void const *const param)
+
+tt_int_t uspf_subscribe(uspf_msg_ref_t msg, uspf_actor_node_ref_t actor_node, tt_uint8_t priority, void const *const param)
 {
     tt_assert_and_check_abort(msg != tt_null); 
     tt_check_return_val(msg->node_num < USPF_LINK_NAME_MAX, -1);
     tt_assert_and_check_return_val(priority >= 0 && priority < 256, -1);
 
-    tt_check_return_val(actor != tt_null, -1);
-    // aviod the same actor subscribe again 
-    tt_check_return_val(actor->enable != tt_true, -1);
+    tt_check_return_val(actor_node != tt_null, -1);
+    // aviod the same actor_node subscribe again 
+    // tt_check_return_val(actor_node->enable != tt_true, -1);
 
-    // update actor
-    actor->priority = priority;
-    actor->renewal = tt_false;
-    actor->mode = 0; //TODO
-    actor->enable = tt_true;
-    actor->name = param;
+    // update actor_node
+    actor_node->actor->priority = priority;
+    actor_node->actor->renewal = tt_false;
+    actor_node->actor->enable = tt_true;
+    actor_node->actor->name = param;
 
     tt_spinlock_enter(&s_lock);
-    tt_list_entry_insert_tail(&msg->subscribe_list, &actor->entry);
-    
+    tt_list_entry_insert_tail(&msg->subscribe_list, &actor_node->entry);
     tt_spinlock_exit(&s_lock);
 
+    tt_trace_d("subscribe, msg,%x, actor_node,%x, actor,%x, handler,%x", msg, actor_node, actor_node->actor, ((uspf_reactor_node_ref_t)actor_node)->reactor->msg_handler);
+
     // update 
-    msg->priority = actor->priority;
+    // msg->priority = actor->priority;
     msg->node_num++;
 
     return 0;
 }
 
-tt_bool_t uspf_reactor_init(uspf_msg_ref_t msg, void *reactor, tt_uint8_t priority, void const *const param)
-{
-    tt_assert_and_check_return_val(reactor != NULL, tt_false);
-
-    uspf_reactor_ref_t reactor_inst = (uspf_reactor_ref_t)reactor;
-    uspf_actor_ref_t actor = &reactor_inst->actor;
-    uspf_subscribe(msg, actor, priority, param);
-
-    return tt_true;
-}
-
-#if 0
-uspf_node_ref_t uspf_subscribe(uspf_msg_ref_t msg, uspf_sync_flag_t flag, tt_void_t (*cb)(tt_void_t* param))
-{
-    tt_assert_and_check_abort(msg); 
-    tt_check_return_val(msg->node_num <= USPF_LINK_NAME_MAX, tt_null);
-    
-    // create node
-    uspf_node_ref_t node = (uspf_node_ref_t)tt_malloc(sizeof(uspf_node_t));
-    tt_check_return_val(node != tt_null, tt_null);
-
-    tt_trace_d("subscribe, new node, %p", node);
-    // init node
-    node->renewal = tt_false;
-    node->cb      = cb;
-    if(flag == USPF_SYNC) 
-    {
-        node->event = tt_semaphore_init(0);
-        tt_trace_d("node->event, %p", node->event);
-    }
-
-    // lock
-    tt_spinlock_enter(&s_lock);
-
-    // add node to subscribe_list
-    tt_list_entry_insert_tail(&msg->subscribe_list, &node->entry);
-    msg->node_num++;
-
-    // unlock
-    tt_spinlock_leave(&s_lock);
-
-    return node;
-}
-#endif
-
-tt_bool_t uspf_unsubscribe(uspf_msg_ref_t msg, uspf_actor_ref_t actor)
+tt_bool_t uspf_unsubscribe(uspf_msg_ref_t msg, uspf_actor_node_ref_t actor_node)
 {
     tt_assert_and_check_abort(msg); 
 
-    tt_check_return_val(actor != tt_null, -1);
+    tt_check_return_val(actor_node != tt_null, -1);
     tt_check_return_val(msg->node_num > 0, -2);
 
     tt_spinlock_enter(&s_lock);
-    tt_list_entry_remove(&msg->subscribe_list, &actor->entry);
-    uspf_actor_ref_t actor_head = (uspf_actor_ref_t)tt_list_entry_head(&msg->subscribe_list);
-    msg->priority = actor_head->priority;
+
+    tt_list_entry_remove(&msg->subscribe_list, &actor_node->entry);
     msg->node_num--;
+
     tt_spinlock_exit(&s_lock);
 
     return 0;
 }
 
-#if 0
-tt_bool_t uspf_unsubscribe(uspf_msg_ref_t msg, uspf_node_ref_t node)
+tt_bool_t uspf_reactor_init(uspf_msg_ref_t msg, void *reactor_node, tt_uint8_t priority, void const *const param)
 {
-    tt_assert_and_check_return_val(msg && node, tt_false);
+    tt_assert_and_check_return_val(reactor_node != NULL, tt_false);
 
-    // TODO check if node in list?
+    uspf_actor_node_ref_t actor_node = (uspf_actor_node_ref_t)reactor_node;
 
-    tt_spinlock_enter(&s_lock);
-
-    tt_list_entry_remove(&msg->subscribe_list, &node->entry);
-
-    tt_spinlock_leave(&s_lock);
-
-    tt_trace_d("unsubscribe, free node, %p", node);
-    // free node
-    if(node) tt_free(node);
-    msg->node_num--;
+    uspf_subscribe(msg, actor_node, priority, param);
 
     return tt_true;
 }
-#endif
+
+
+
 
 tt_bool_t uspf_publish(uspf_msg_ref_t msg, const void* data)
 {
@@ -293,15 +307,14 @@ tt_bool_t uspf_publish(uspf_msg_ref_t msg, const void* data)
     // copy data
     memcpy(msg->pdata, data, msg->msg_size);
 
-    msg->published = 1;
 
-    // walk subscribe_list
-    tt_for_all(uspf_actor_ref_t, node1, iterator)
+    // update all subscribe actors
+    tt_for_all(uspf_actor_node_ref_t, actor_node, iterator)
     {
         // update flag
-        node1->renewal = tt_true;
+        actor_node->actor->renewal = tt_true;
         // if(node1->event) tt_semaphore_post(node1->event, 1); 
-        tt_trace_d("publish, node, %p", node1);
+        tt_trace_d("publish, actor, %p", actor_node);
     }
 
     // unlock
@@ -313,73 +326,13 @@ tt_bool_t uspf_publish(uspf_msg_ref_t msg, const void* data)
     //     if(node2->cb != tt_null) node2->cb(msg->pdata);
     // }
 
+    msg->published = tt_true;
+
     return tt_true;    
 }
 
-#if 0
-tt_bool_t uspf_poll(uspf_node_ref_t node)
-{
-    tt_assert_and_check_return_val(node, tt_false);
 
-    return node->renewal;
-}
 
-tt_bool_t uspf_poll_sync(uspf_node_ref_t node, unsigned int timeout)
-{
-    tt_assert_and_check_return_val(node, tt_false);
-
-    // tt_semaphore_wait(node->event);
-
-    return tt_true;
-}
-
-tt_bool_t uspf_copy(uspf_msg_ref_t msg, uspf_node_ref_t node, void* buff)
-{
-    tt_assert_and_check_return_val(msg && node && buff, tt_false);
-
-    // check msg pdata
-    tt_check_return_val(msg->pdata != tt_null, tt_false);
-    // check if publish
-    tt_check_return_val(msg->published, tt_false);
-
-    tt_spinlock_enter(&s_lock);
-
-    tt_trace_d("copy, msg->pdata, %p", msg->pdata);
-    memcpy(buff, msg->pdata, msg->msg_size);
-    node->renewal = tt_false;
-
-    tt_spinlock_leave(&s_lock);
-
-    return tt_true;
-}
-#endif
-
-tt_bool_t uspf_copy_hub(uspf_msg_ref_t msg, tt_void_t* buff)
-{
-    tt_assert_and_check_return_val(msg && buff, tt_false);
-
-    // check msg pdata
-    tt_check_return_val(msg->pdata != tt_null, tt_false);
-    // check if publish
-    tt_check_return_val(msg->published, tt_false);
-
-    tt_spinlock_enter(&s_lock);
-    memcpy(buff, msg->pdata, msg->msg_size);
-    tt_spinlock_leave(&s_lock);
-
-    return tt_true;
-}
-
-tt_bool_t uspf_node_clear(uspf_actor_ref_t node)
-{
-    tt_assert_and_check_return_val(node, tt_false);
-
-    tt_spinlock_enter(&s_lock);
-    node->renewal = tt_false;
-    tt_spinlock_leave(&s_lock);
-
-    return tt_true;
-}
 
 
 

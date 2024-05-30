@@ -25,7 +25,9 @@
 /* //////////////////////////////////////////////////////////////////////////////////////
  * globals
  */
-USPF_MSG_DECLARE(demo_topic);
+USPF_MSG_DECLARE(demo_topic1);
+USPF_MSG_DECLARE(demo_topic2);
+USPF_MSG_DECLARE(demo_topic3);
 
 /* //////////////////////////////////////////////////////////////////////////////////////
  * declaration
@@ -44,13 +46,18 @@ tt_int_t main(tt_void_t)
     uspf_init();
 
     // register topic
-    uspf_register(USPF_MSG_ID(demo_topic), tt_null);    
+    uspf_register(USPF_MSG_ID(demo_topic3), tt_null);    
+    uspf_register(USPF_MSG_ID(demo_topic1), tt_null);    
+    uspf_register(USPF_MSG_ID(demo_topic2), tt_null);    
 
     example_reactor_init(8, "reactor1");
+
 
     pthread_create(&t3, tt_null, demo_uspf_run_thread, tt_null);
     sleep(1);
     pthread_create(&t1, tt_null, demo_publish_thread, tt_null);
+
+    // uspf_start();
 
     // join the thread
     pthread_join(t1, tt_null);
@@ -67,7 +74,7 @@ tt_int_t main(tt_void_t)
 
 tt_void_t* demo_uspf_run_thread(tt_void_t* arg)
 {
-    tt_trace_d("demo_uspf_run_thread");
+    // tt_trace_d("demo_uspf_run_thread");
 
     uspf_run();
 
